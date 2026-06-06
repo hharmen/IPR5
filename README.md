@@ -24,16 +24,6 @@ task-app/
     └── frontend-service.yaml
 ```
 
-## API
-
-| Метод | Endpoint | Описание |
-|-------|----------|----------|
-| GET | `/api/tasks` | Получить все задачи |
-| POST | `/api/tasks` | Создать задачу `{"title": "..."}` |
-| PUT | `/api/tasks/:id` | Переключить статус done |
-| DELETE | `/api/tasks/:id` | Удалить задачу |
-| GET | `/health` | Healthcheck |
-
 ## Запуск в Kubernetes
 
 ```bash
