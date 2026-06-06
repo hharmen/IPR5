@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Список задач</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 600px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #f8fafc;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 32px;
+    }
+
+    .add-form {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .add-form input {
+      flex: 1;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #f1f5f9;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .add-form input:focus { border-color: #6366f1; }
+    .add-form input::placeholder { color: #475569; }
+
+    .btn {
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: #4f46e5; }
+    .btn:active { background: #4338ca; }
+
+    .stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      font-size: 0.82rem;
+      color: #64748b;
+    }
+
+    .stats span { display: flex; align-items: center; gap: 4px; }
+
+    .task-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .task {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 14px 16px;
+      transition: border-color 0.15s, opacity 0.15s;
+    }
+
+    .task.done { opacity: 0.55; }
+    .task.done .task-title { text-decoration: line-through; color: #475569; }
+
+    .task-check {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #475569;
+      border-radius: 50%;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .task.done .task-check {
+      background: #6366f1;
+      border-color: #6366f1;
+    }
+
+    .task-check::after {
+      content: '';
+      display: none;
+      width: 6px;
+      height: 6px;
+      background: #fff;
+      border-radius: 50%;
+    }
+
+    .task.done .task-check::after { display: block; }
+
+    .task-title { flex: 1; font-size: 0.95rem; line-height: 1.4; }
+
+    .task-date {
+      font-size: 0.75rem;
+      color: #475569;
+      flex-shrink: 0;
+    }
+
+    .task-delete {
+      background: none;
+      border: none;
+      color: #475569;
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+
+    .task-delete:hover { color: #ef4444; }
+
+    .empty {
+      text-align: center;
+      padding: 48px 0;
+      color: #475569;
+      font-size: 0.9rem;
+    }
+
+    .pod-badge {
+      margin-top: 32px;
+      padding: 8px 12px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      color: #334155;
+      text-align: center;
+    }
+
+    .error-banner {
+      background: #450a0a;
+      border: 1px solid #7f1d1d;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      color: #fca5a5;
+      font-size: 0.85rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Список задач</h1>
+    <p class="subtitle">Работает в Kubernetes</p>
+
+    <div class="error-banner" id="error"></div>
+
+    <form class="add-form" id="addForm">
+      <input type="text" id="titleInput" placeholder="Новая задача..." autocomplete="off">
+      <button type="submit" class="btn">Добавить</button>
+    </form>
+
+    <div class="stats" id="stats"></div>
+    <div class="task-list" id="taskList"></div>
+    <div class="pod-badge" id="podBadge"></div>
+  </div>
+
+  <script>
+    const taskList = document.getElementById('taskList');
+    const stats = document.getElementById('stats');
+    const errorBanner = document.getElementById('error');
+    const podBadge = document.getElementById('podBadge');
+
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.style.display = 'block';
+      setTimeout(() => errorBanner.style.display = 'none', 4000);
+    }
+
+    function formatDate(iso) {
+      return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function renderTasks(tasks) {
+      const total = tasks.length;
+      const done = tasks.filter(t => t.done).length;
+      stats.innerHTML = `
+        <span>Всего: <b>${total}</b></span>
+        <span>Выполнено: <b>${done}</b></span>
+        <span>Осталось: <b>${total - done}</b></span>
+      `;
+
+      if (!tasks.length) {
+        taskList.innerHTML = '<div class="empty">Задач нет. Добавьте первую!</div>';
+        return;
+      }
+
+      taskList.innerHTML = tasks.map(t => `
+        <div class="task ${t.done ? 'done' : ''}" data-id="${t.id}">
+          <div class="task-check" onclick="toggleTask(${t.id})"></div>
+          <span class="task-title">${escapeHtml(t.title)}</span>
+          <span class="task-date">${formatDate(t.created_at)}</span>
+          <button class="task-delete" onclick="deleteTask(${t.id})" title="Удалить">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    async function loadTasks() {
+      try {
+        const res = await fetch('/api/tasks');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const tasks = await res.json();
+        renderTasks(tasks);
+      } catch (e) {
+        showError('Не удалось загрузить задачи: ' + e.message);
+      }
+    }
+
+    async function toggleTask(id) {
+      try {
+        await fetch(`/api/tasks/${id}`, { method: 'PUT' });
+        loadTasks();
+      } catch (e) {
+        showError('Ошибка при обновлении задачи');
+      }
+    }
+
+    async function deleteTask(id) {
+      try {
+        await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+        loadTasks();
+      } catch (e) {
+        showError('Ошибка при удалении задачи');
+      }
+    }
+
+    document.getElementById('addForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('titleInput');
+      const title = input.value.trim();
+      if (!title) return;
+      try {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        input.value = '';
+        loadTasks();
+      } catch (e) {
+        showError('Ошибка при создании задачи');
+      }
+    });
+
+    async function loadPodInfo() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        podBadge.textContent = `Frontend pod: ${data.service}`;
+      } catch {}
+    }
+
+    loadTasks();
+    loadPodInfo();
+  </script>
+</body>
+</html>
